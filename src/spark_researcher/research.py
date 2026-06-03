@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+import tempfile
 import json
 import re
 from datetime import UTC, datetime
@@ -147,7 +149,16 @@ def _write_research_artifact(runtime_root: Path, payload: dict[str, Any]) -> Pat
     root = advisory_root(runtime_root) / "research"
     root.mkdir(parents=True, exist_ok=True)
     path = root / f"{_now_slug()}.json"
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    tmp_fd, tmp_path = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp")
+    try:
+        with os.fdopen(tmp_fd, "w", encoding="utf-8") as tmp_file:
+            tmp_file.write(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+        os.replace(tmp_path, path)
+    except Exception:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
     return path
 
 
